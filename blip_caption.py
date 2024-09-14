@@ -2,21 +2,26 @@ from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
 
 
-# Load the processor and model
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+class ImagePrompt:
+    def __init__(self, image_path):
+        self.image = Image.open(image_path)
+    
+    def _generate_model(self):
+        self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+        self.inputs = self.processor(images=self.image, return_tensors="pt")
 
-# Load an image (change the URL to an image path if you're using a local image)
-image_path = "images/Laptop.JPG"  # Replace with your image URL or path
-image = Image.open(image_path)
+    def _generate_output(self):
+        self._generate_model()
+        output = self.model.generate(**self.inputs)
+        caption = self.processor.decode(output[0], skip_special_tokens=True)
+        return caption
+    
+    def __str__(self):
+        return self._generate_output()
 
-# Preprocess the image and prepare for captioning
-inputs = processor(images=image, return_tensors="pt")
 
-# Generate a caption
-output = model.generate(**inputs)
+prompt = ImagePrompt("images/Laptop.JPG")
+print(prompt)
 
-# Decode and print the caption
-caption = processor.decode(output[0], skip_special_tokens=True)
-print("Generated Caption:", caption)
-#test 
+
