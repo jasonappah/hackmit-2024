@@ -1,6 +1,6 @@
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
-import requests
+
 
 # Load the processor and model
 processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")

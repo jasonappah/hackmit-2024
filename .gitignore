@@ -1,2 +1,4 @@
 .env
 .env*
+# Ignore the large PyTorch library file
+
