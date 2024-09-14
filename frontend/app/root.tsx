@@ -1,5 +1,5 @@
 import {
-    json,
+  json,
   Links,
   Meta,
   Outlet,
@@ -8,9 +8,11 @@ import {
   useLoaderData,
 } from "@remix-run/react";
 import type { LinksFunction } from "@remix-run/node";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 
 import "./tailwind.css";
 import { QueryClient, QueryClientProvider } from "react-query";
+import { useState } from "react";
 
 export const links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -25,50 +27,46 @@ export const links: LinksFunction = () => [
   },
 ];
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient();
 
 export function loader() {
   return json({
     ENV: {
-      SUNO_API_KEY: process.env.SUNO_API_KEY
-    }
-  })
+      CONVEX_URL: process.env.CONVEX_URL!,
+    },
+  });
 }
- 
-export function Layout({ children }: { children: React.ReactNode }) {  
-  const data = useLoaderData<typeof loader>();
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  const { ENV } = useLoaderData<typeof loader>();
+  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL));
+
   return (
-    
-      <html lang="en">
-        <head>
-          <meta charSet="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <Meta />
-          <Links />
-        </head>
-        <body>
-          <script
-              dangerouslySetInnerHTML={{
-                __html: `window.ENV = ${JSON.stringify(
-                  data.ENV
-                )}`,
-              }}
-            />
-            {children}
-            <ScrollRestoration />
-            <Scripts />
-        </body>
-      </html>
-    
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.ENV = ${JSON.stringify(ENV)}`,
+          }}
+        />
+        <ConvexProvider client={convex}>{children}</ConvexProvider>
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
   );
 }
 
 export default function App() {
-  
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
-      
     </QueryClientProvider>
   );
 }
