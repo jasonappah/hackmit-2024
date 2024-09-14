@@ -39,7 +39,6 @@ export function loader() {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { ENV } = useLoaderData<typeof loader>();
-  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL));
 
   return (
     <html lang="en">
@@ -55,7 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `window.ENV = ${JSON.stringify(ENV)}`,
           }}
         />
-        <ConvexProvider client={convex}>{children}</ConvexProvider>
+        {children}
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -64,9 +63,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { ENV } = useLoaderData<typeof loader>();
+  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL));
   return (
-    <QueryClientProvider client={queryClient}>
-      <Outlet />
-    </QueryClientProvider>
+    <ConvexProvider client={convex}>
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    </ConvexProvider>
   );
 }
