@@ -9,30 +9,32 @@ type SunoGenerateAudioPayload = {
   mv: typeof SUNO_MODEL;
 }
 
+type SunoGeneratedClip = {
+    id: string;
+    video_url: string;
+    audio_url: string;
+    is_video_pending: boolean;
+    major_model_version: string;
+    model_name: string;
+    metadata: any; // dont care lol
+    is_liked: boolean;
+    user_id: string;
+    display_name: string;
+    handle: string;
+    is_handle_updated: boolean;
+    avatar_image_url: string;
+    is_trashed: boolean;
+    created_at: string;
+    status: 'submitted' | 'queued' | 'streaming' | 'complete' | 'error';
+    title: string;
+    play_count: number;
+    upvote_count: number;
+    is_public: boolean;
+}
+
 type SunoGenerateAudioResponse = {
     id: string;
-    clips: {
-        id: string;
-        video_url: string;
-        audio_url: string;
-        is_video_pending: boolean;
-        major_model_version: string;
-        model_name: string;
-        metadata: any; // dont care lol
-        is_liked: boolean;
-        user_id: string;
-        display_name: string;
-        handle: string;
-        is_handle_updated: boolean;
-        avatar_image_url: string;
-        is_trashed: boolean;
-        created_at: string;
-        status: string;
-        title: string;
-        play_count: number;
-        upvote_count: number;
-        is_public: boolean;
-    }[];
+    clips: SunoGeneratedClip[];
     metadata: {
         prompt: string;
         gpt_description_prompt: string;
@@ -63,38 +65,7 @@ export const useGenerateAudioByPrompt = () => {
 };
 
 export interface SunoFeedResponse {
-    clips: {
-        id: string;
-        video_url: string;
-        audio_url: string;
-        image_url: string;
-        image_large_url: string;
-        is_video_pending: boolean;
-        major_model_version: string;
-        model_name: string;
-        metadata: {
-            tags: string;
-            prompt: string;
-            gpt_description_prompt: string;
-            type: string;
-            duration?: number;
-            refund_credits?: boolean;
-            stream: boolean;
-        };
-        is_liked: boolean;
-        user_id: string;
-        display_name: string;
-        handle: string;
-        is_handle_updated: boolean;
-        avatar_image_url: string;
-        is_trashed: boolean;
-        created_at: string;
-        status: 'submitted' | 'queued' | 'streaming' | 'complete' | 'error';
-        title: string;
-        play_count: number;
-        upvote_count: number;
-        is_public: boolean;
-    }[];
+    clips: SunoGeneratedClip[];
     num_total_results: number;
     current_page: number;
 }
