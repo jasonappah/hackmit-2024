@@ -19,3 +19,4 @@ output = model.generate(**inputs)
 # Decode and print the caption
 caption = processor.decode(output[0], skip_special_tokens=True)
 print("Generated Caption:", caption)
+#test 
