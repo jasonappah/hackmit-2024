@@ -1,0 +1,15 @@
+{
+  "name": "hackmit-2024",
+  "version": "1.0.0",
+  "description": "Welcome to the **Genre Defined Music App**! This app uses the power of the Seno API to provide users with a personalized music creation experience based on their input.",
+  "main": "example_seno.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "convex": "^1.16.0"
+  }
+}
