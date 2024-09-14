@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from 'react-query';
-const SUNO_MODEL = "chirp-v3-5" as const;
+import { SUNO_MODEL } from './constants';
+
 
 type SunoGenerateAudioPayload = {
   gpt_description_prompt?: string;
@@ -17,7 +18,7 @@ type SunoGenerateAudioResponse = {
         is_video_pending: boolean;
         major_model_version: string;
         model_name: string;
-        metadata: Metadata;
+        metadata: any; // dont care lol
         is_liked: boolean;
         user_id: string;
         display_name: string;
@@ -44,18 +45,13 @@ type SunoGenerateAudioResponse = {
     batch_size: number;
 }
 
-const BASE_URL = "https://studio-api.suno.ai" as const;
-
 export const useGenerateAudioByPrompt = () => {
   return useMutation<SunoGenerateAudioResponse, Error, SunoGenerateAudioPayload>(
     async (payload) => {
-      const url = BASE_URL + '/api/generate/v2/';
+      const route = '/api/generate/v2/';
+      const url = `/suno_proxy?endpoint=${encodeURIComponent(route)}`
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.SUNO_API_KEY}`,
-        },
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
@@ -108,17 +104,17 @@ export const useGetFeed = (ids: string[]) => {
   return useQuery<SunoFeedResponse, Error>(
     ['feed', ids],
     async () => {
-      const url = `${BASE_URL}/api/feed/v2/?ids=${ids.join(',')}`;
+      const route = `/api/feed/v2/?ids=${(ids.join(','))}`;
+      const url = `/suno_proxy?endpoint=${encodeURIComponent(route)}`
       const response = await fetch(url, {
         method: "GET",
-        headers: {
-          "Authorization": `Bearer ${process.env.SUNO_API_KEY}`,
-        },
       });
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
       return response.json();
+    }, {
+      refetchInterval: 1000 * 10, // 10 seconds
     }
   );
 };
