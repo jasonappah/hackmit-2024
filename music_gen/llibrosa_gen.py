@@ -2,6 +2,7 @@ import torch
 import librosa
 import numpy as np
 import soundfile as sf
+from scipy.signal import lfilter
 
 class MusicEnhancer:
     def __init__(self, audio_path, model_path):
@@ -15,6 +16,11 @@ class MusicEnhancer:
         self.model_path = model_path
         self.y, self.sr = librosa.load(audio_path, sr=None)
         self.model = self.load_model()
+        # Extract additional information
+        self.tempo, self.beats = self.analyze_audio()
+        self.onset_env = librosa.onset.onset_strength(y=self.y, sr=self.sr)
+        self.harmonic, self.percussive = librosa.effects.hpss(self.y)  # Harmonic-Percussive Source Separation
+
 
     def load_model(self):
         """
@@ -46,7 +52,6 @@ class MusicEnhancer:
         with torch.no_grad():
             beat_strengths = self.model(audio_tensor).squeeze(0).squeeze(0).numpy()
 
-        # Ensure beat_strengths covers the entire track by padding if necessary
         if len(beat_strengths) < len(self.y):
             beat_strengths = np.pad(beat_strengths, (0, len(self.y) - len(beat_strengths)), 'constant')
         
@@ -77,7 +82,7 @@ class MusicEnhancer:
 
     def generate_kick(self, duration=0.1, freq=50):
         """
-        Generate a kick sound.
+        Generate a kick sound with a more natural decay.
 
         :param duration: Duration of the kick sound in seconds.
         :param freq: Frequency of the kick sound.
@@ -85,34 +90,35 @@ class MusicEnhancer:
         """
         t = np.linspace(0, duration, int(self.sr * duration), False)
         kick = 0.5 * np.sin(2 * np.pi * freq * t)
-        kick *= np.exp(-t * 30)  # Decay envelope
+        kick *= np.exp(-t * 40)  # More realistic decay envelope
         return kick
 
     def generate_snare(self, duration=0.1):
         """
-        Generate a snare sound.
+        Generate a snare sound with a natural decay and noise shaping.
 
         :param duration: Duration of the snare sound in seconds.
         :return: Generated snare sound array.
         """
         snare = 0.5 * np.random.randn(int(self.sr * duration))
-        envelope = np.exp(-np.linspace(0, 1, int(self.sr * duration)) * 10)  # Fast decay
-        return snare * envelope
+        envelope = np.exp(-np.linspace(0, 1, int(self.sr * duration)) * 12)  # Fast decay
+        filtered_snare = lfilter([1], [1, -0.95], snare)  # Simple noise shaping
+        return filtered_snare * envelope
 
     def generate_hihat(self, duration=0.05):
         """
-        Generate a hi-hat sound.
+        Generate a hi-hat sound with a sharp, realistic decay.
 
         :param duration: Duration of the hi-hat sound in seconds.
         :return: Generated hi-hat sound array.
         """
         hihat = 0.3 * np.random.randn(int(self.sr * duration))
-        envelope = np.exp(-np.linspace(0, 1, int(self.sr * duration)) * 30)  # Fast decay
+        envelope = np.exp(-np.linspace(0, 1, int(self.sr * duration)) * 50)  # Fast decay
         return hihat * envelope
 
     def generate_piano(self, note, duration=0.5):
         """
-        Generate a simple piano sound using sine waves for a specified note.
+        Generate a simple piano sound with natural decay and subtle reverb effect.
 
         :param note: MIDI note number.
         :param duration: Duration of the piano note in seconds.
@@ -121,12 +127,13 @@ class MusicEnhancer:
         freq = 440.0 * (2.0 ** ((note - 69) / 12.0))
         t = np.linspace(0, duration, int(self.sr * duration), False)
         piano_note = 0.4 * np.sin(2 * np.pi * freq * t)
-        envelope = np.exp(-t * 3)  # Decay envelope to make it sound like a piano
-        return piano_note * envelope
+        envelope = np.exp(-t * 4)  # Adjusted decay envelope
+        reverb = np.convolve(piano_note * envelope, np.random.normal(0, 0.01, 500), mode='same')
+        return piano_note * envelope + reverb * 0.1  # Add subtle reverb
 
     def add_drums(self, beats, beat_strengths):
         """
-        Add drum sounds at beat locations and ensure continuous presence.
+        Add drum sounds matching the rhythmic complexity of the music.
 
         :param beats: Array of beat frames.
         :param beat_strengths: Array of beat strengths from the ML model.
@@ -134,35 +141,62 @@ class MusicEnhancer:
         """
         drums = np.zeros_like(self.y)
         extended_strengths = self.extend_beat_strengths(beat_strengths)
+        onsets = librosa.onset.onset_detect(y=self.percussive, sr=self.sr, backtrack=True)
         
-        # Determine spacing of drum hits to ensure consistent presence
-        spacing = int(self.sr * 0.5)  # Place a drum hit every 0.5 seconds
+        # Map rhythmic components to reflect complexity in kick, snare, and hi-hat
+        beat_positions = librosa.frames_to_time(beats, sr=self.sr)
+        beat_intervals = np.diff(beat_positions)  # Calculate time intervals between beats
 
-        for i in range(0, len(self.y), spacing):
-            beat_time = i
-            kick = self.generate_kick()
-            snare = self.generate_snare()
-            hihat = self.generate_hihat()
+        for i, beat_time in enumerate(beat_positions[:-1]):
+            # Determine the drum hit placement based on beat intervals and beat strengths
+            interval = beat_intervals[i]
+            kick_probability = extended_strengths[int(beat_time * self.sr)]  # Higher probability for stronger beats
+            snare_probability = (1 - kick_probability) * 0.5  # Adjust snare based on weaker beats
+            hihat_probability = extended_strengths[int(beat_time * self.sr)] * 0.3 + 0.7  # Hi-hats fill in around beats
 
-            adjusted_kick = self.adjust_dynamics(kick, extended_strengths[max(0, beat_time):max(0, beat_time + len(kick))])
-            adjusted_snare = self.adjust_dynamics(snare, extended_strengths[max(0, beat_time):max(0, beat_time + len(snare))])
-            adjusted_hihat = self.adjust_dynamics(hihat, extended_strengths[max(0, beat_time):max(0, beat_time + len(hihat))])
+            # Generate kick, snare, and hi-hat
+            if kick_probability > 0.6:  # Add kicks on stronger beats
+                kick = self.generate_kick(duration=interval) * kick_probability
+                kick = self.adjust_dynamics(kick, extended_strengths[int(beat_time * self.sr):int(beat_time * self.sr) + len(kick)])
+                if int(beat_time * self.sr) + len(kick) < len(drums):
+                    drums[int(beat_time * self.sr):int(beat_time * self.sr) + len(kick)] += kick
 
-            # Mix the adjusted drums into the drum track
-            if beat_time + len(adjusted_kick) < len(drums):
-                drums[beat_time:beat_time + len(adjusted_kick)] += adjusted_kick
-            if beat_time % 4 == 0 and beat_time + len(adjusted_snare) < len(drums):
-                drums[beat_time:beat_time + len(adjusted_snare)] += adjusted_snare
-            if beat_time + len(adjusted_hihat) < len(drums):
-                drums[beat_time:beat_time + len(adjusted_hihat)] += adjusted_hihat
+            if snare_probability > 0.4:  # Add snares to complement kicks
+                snare = self.generate_snare(duration=interval * 0.5) * snare_probability
+                snare_time = int((beat_time + interval / 2) * self.sr)  # Place snares halfway through interval
+                snare = self.adjust_dynamics(snare, extended_strengths[snare_time:snare_time + len(snare)])
+                if snare_time + len(snare) < len(drums):
+                    drums[snare_time:snare_time + len(snare)] += snare
 
-        # Normalize drums to prevent clipping
-        drums = drums / np.max(np.abs(drums))
+            if hihat_probability > 0.5:  # Add hi-hats to fill gaps
+                hihat = self.generate_hihat(duration=interval * 0.25) * hihat_probability
+                hihat_time = int((beat_time + interval / 4) * self.sr)  # Place hi-hats slightly before snares
+                hihat = self.adjust_dynamics(hihat, extended_strengths[hihat_time:hihat_time + len(hihat)])
+                if hihat_time + len(hihat) < len(drums):
+                    drums[hihat_time:hihat_time + len(hihat)] += hihat
+
+            # Use onsets to add additional fills and accents
+            if any(onset for onset in onsets if abs(onset / self.sr - beat_time) < interval / 2):
+                # Add fills by doubling hits around onsets
+                fill_kick = self.generate_kick(duration=0.1) * 0.8
+                fill_snare = self.generate_snare(duration=0.1) * 0.7
+                fill_time = int(beat_time * self.sr + interval * self.sr * 0.2)
+                if fill_time + len(fill_kick) < len(drums):
+                    drums[fill_time:fill_time + len(fill_kick)] += fill_kick
+                if fill_time + len(fill_snare) < len(drums):
+                    drums[fill_time:fill_time + len(fill_snare)] += fill_snare
+
+        # Normalize drums to prevent clipping and maintain consistent levels
+        drums = drums / np.max(np.abs(drums) + 1e-9)  # Avoid division by zero
         return drums
+
+
+
+
 
     def add_piano(self, beats, beat_strengths):
         """
-        Add piano notes at beat locations and ensure continuous presence.
+        Add piano notes at beat locations with enhanced dynamics and musicality.
 
         :param beats: Array of beat frames.
         :param beat_strengths: Array of beat strengths from the ML model.
@@ -171,23 +205,38 @@ class MusicEnhancer:
         piano = np.zeros_like(self.y)
         notes = [60, 64, 67]  # C Major chord: C, E, G
         extended_strengths = self.extend_beat_strengths(beat_strengths)
-        
+
         # Determine spacing of piano hits to ensure consistent presence
         spacing = int(self.sr * 1)  # Place a piano hit every 1 second
 
         for i in range(0, len(self.y), spacing):
             beat_time = i
-            note = notes[(i // spacing) % len(notes)]  # Cycle through the notes
+            
+            # Cycle through the notes with random inversions and octave shifts for variation
+            note = notes[(i // spacing) % len(notes)]
+            if np.random.rand() > 0.5:  # 50% chance to play an octave higher or lower
+                note += np.random.choice([-12, 12])  # Octave shift up or down
+
             piano_note = self.generate_piano(note)
 
-            adjusted_piano = self.adjust_dynamics(piano_note, extended_strengths[max(0, beat_time):max(0, beat_time + len(piano_note))])
+            # Apply random variations to velocity for a more expressive feel
+            variability_factor = np.random.uniform(0.8, 1.2)
+            adjusted_piano = self.adjust_dynamics(
+                piano_note * variability_factor, 
+                extended_strengths[max(0, beat_time):max(0, beat_time + len(piano_note))]
+            )
+
+            # Slightly adjust timing to avoid robotic feel
+            timing_offset = int(self.sr * np.random.uniform(-0.05, 0.05))  # Small timing shift
 
             # Mix the adjusted piano into the piano track
-            if beat_time + len(adjusted_piano) < len(piano):
-                piano[beat_time:beat_time + len(adjusted_piano)] += adjusted_piano
+            start_time = max(0, beat_time + timing_offset)
+            end_time = start_time + len(adjusted_piano)
+            if end_time < len(piano):
+                piano[start_time:end_time] += adjusted_piano
 
-        # Normalize piano to prevent clipping
-        piano = piano / np.max(np.abs(piano))
+        # Normalize piano to prevent clipping and maintain consistent volume levels
+        piano = piano / np.max(np.abs(piano) + 1e-9)  # Avoid division by zero
         return piano
 
     def normalize(self, signal):
