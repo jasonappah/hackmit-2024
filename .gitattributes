@@ -3,3 +3,5 @@
 /Users/aux/Downloads/hackmit-2024/blip-env/lib/python3.12/site-packages/torch/lib/libtorch_python.dylib filter=lfs diff=lfs merge=lfs -text
 /Users/aux/hackmit-2024/blip-env/lib/python3.12/site-packages/torch/lib/libtorch_cpu.dylib filter=lfs diff=lfs merge=lfs -text
 blip-env/lib/python3.12/site-packages/torch/lib/libtorch_cpu.dylib filter=lfs diff=lfs merge=lfs -text
+music_gen/music_alteration_model/lib/python3.12/site-packages/torch/lib/libtorch_cpu.dylib filter=lfs diff=lfs merge=lfs -text
+music_gen/gen_model/musicnet.ts filter=lfs diff=lfs merge=lfs -text
