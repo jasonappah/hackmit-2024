@@ -1,0 +1,5 @@
+channels: 2
+files:
+- Dancing Through the Night.mp3
+sample_rate: 48000
+lazy: true
