@@ -1,6 +1,6 @@
-import { APP_NAME, SUNO_MODEL } from "~/lib/constants";
+import { APP_NAME, SUNO_MODEL } from "../lib/constants";
 
-import { Button } from "~/components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -8,18 +8,21 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { useGenerateAudioByPrompt, useGetFeed } from "~/lib/suno";
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { useState } from "react";
 
+import { ThumbsUp } from "lucide-react";
+import { Badge } from "../components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { useQuery, useAction, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+
 export default function Card2() {
-  const feedQuery = useGetFeed([
-    "e114e151-8243-4e16-b756-eb47874e85d1",
-    "33b00567-6772-43b2-b97c-4dc8b2f77dc6",
-  ]);
-  const generate = useGenerateAudioByPrompt();
+  const convexFeedQuery = useQuery(api.functions.getSunoClips, {});
+  const convexGenerateMutation = useAction(api.functions.generateSunoAudio);
+  const convexPollMutation = useMutation(api.functions.schedulePollSunoClips);
   const [input, setInput] = useState<string>("");
   return (
     <div className="flex flex-col items-center justify-center w-full min-h-screen gap-4 py-12">
@@ -34,7 +37,7 @@ export default function Card2() {
               <Label htmlFor="prompt">Prompt</Label>
               <Input
                 id="prompt"
-                placeholder="Name of your project"
+                placeholder="Prompt your next song"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
               />
@@ -44,24 +47,30 @@ export default function Card2() {
         <CardFooter className="flex justify-between">
           <Button
             type="button"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
-              generate.mutate({
+              await convexGenerateMutation({
                 mv: SUNO_MODEL,
                 prompt: input,
-              });
+              })
             }}
           >
             Generate
           </Button>
+          <Button
+            type="button"
+            onClick={async (e) => {
+              e.preventDefault();
+              await convexPollMutation();
+            }}
+          >
+            Poll
+          </Button>
         </CardFooter>
       </Card>
-      {feedQuery.isLoading && <p>Loading...</p>}
-      {feedQuery.error && <p>Error: {feedQuery.error.message}</p>}
-      {feedQuery.data &&
-        feedQuery.data.clips.map((clip) => (
-          <ClipCard key={clip.id} clip={clip} />
-        ))}
+      {convexFeedQuery?.map((clip) => 
+        clip?.result ? <ClipCard key={clip.result.id} clip={clip.result} /> : null
+      )}
     </div>
   );
 }
@@ -69,11 +78,6 @@ export default function Card2() {
 interface ClipCardProps {
   clip: SunoFeedResponse["clips"][0];
 }
-
-import { SunoFeedResponse } from "~/lib/suno";
-import { Play, Pause, ThumbsUp } from "lucide-react";
-import { Badge } from "~/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
 const ClipCard: React.FC<ClipCardProps> = ({ clip }) => {
   const renderStatus = () => {
