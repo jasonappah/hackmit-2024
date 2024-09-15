@@ -6,18 +6,39 @@ export const sunoGenerateAudioPayload = v.object({
   gpt_description_prompt: v.optional(v.string()),
   tags: v.optional(v.array(v.string())),
   prompt: v.string(),
-  mv: v.literal(SUNO_MODEL)
-})
+  mv: v.literal(SUNO_MODEL),
+});
 
-export type SunoGenerateAudioPayload = Infer<typeof sunoGenerateAudioPayload>
+export type SunoGenerateAudioResponse = {
+  id: string;
+  clips: SunoGeneratedClip[];
+  metadata: {
+    prompt: string;
+    gpt_description_prompt: string;
+    type: string;
+    stream: boolean;
+  };
+  major_model_version: string;
+  status: string;
+  created_at: string;
+  batch_size: number;
+};
+
+export interface SunoFeedResponse {
+  clips: SunoGeneratedClip[];
+  num_total_results: number;
+  current_page: number;
+}
+
+export type SunoGenerateAudioPayload = Infer<typeof sunoGenerateAudioPayload>;
 
 export const sunoStatus = v.union(
   v.literal("submitted"),
   v.literal("queued"),
   v.literal("streaming"),
   v.literal("complete"),
-  v.literal("error")
-)
+  v.literal("error"),
+);
 
 export const sunoGeneratedClip = v.object({
   id: v.string(),
@@ -41,23 +62,20 @@ export const sunoGeneratedClip = v.object({
   display_name: v.string(),
   handle: v.string(),
   is_handle_updated: v.boolean(),
-  avatar_image_url: v.string()
-})
+  avatar_image_url: v.string(),
+});
 
-
-
-
-export type SunoGeneratedClip = Infer<typeof sunoGeneratedClip>
+export type SunoGeneratedClip = Infer<typeof sunoGeneratedClip>;
 
 export default defineSchema({
   suno_prompts: defineTable({
     suno_prompt_id: v.string(),
-    suno_request_payload: sunoGenerateAudioPayload
+    suno_request_payload: sunoGenerateAudioPayload,
   }),
   suno_clips: defineTable({
     suno_prompt: v.id("suno_prompts"),
     suno_clip_id: v.string(),
     status: sunoStatus,
-    result: v.optional(sunoGeneratedClip)
-  })
+    result: v.optional(sunoGeneratedClip),
+  }),
 });

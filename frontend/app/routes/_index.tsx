@@ -9,18 +9,23 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { useState } from "react";
 
 import { ThumbsUp } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
-import { useQuery, useAction, useMutation } from "convex/react";
+import { usePaginatedQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { SunoFeedResponse } from "../../../convex/schema";
 
 export default function Card2() {
-  const convexFeedQuery = useQuery(api.functions.getSunoClips, {});
+  const { results: convexFeedQuery, status: convexFeedQueryStatus, loadMore: loadMoreGenerations } = usePaginatedQuery(
+      api.functions.getSunoClips,
+      {},
+      { initialNumItems: 3 },
+    );
   const convexGenerateMutation = useAction(api.functions.generateSunoAudio);
   const convexPollMutation = useMutation(api.functions.schedulePollSunoClips);
   const [input, setInput] = useState<string>("");
@@ -35,7 +40,7 @@ export default function Card2() {
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="prompt">Prompt</Label>
-              <Input
+              <Textarea
                 id="prompt"
                 placeholder="Prompt your next song"
                 value={input}
@@ -52,7 +57,7 @@ export default function Card2() {
               await convexGenerateMutation({
                 mv: SUNO_MODEL,
                 prompt: input,
-              })
+              });
             }}
           >
             Generate
@@ -68,9 +73,14 @@ export default function Card2() {
           </Button>
         </CardFooter>
       </Card>
-      {convexFeedQuery?.map((clip) => 
-        clip?.result ? <ClipCard key={clip.result.id} clip={clip.result} /> : null
+      {convexFeedQuery?.map((clip) =>
+        clip?.result ? (
+          <ClipCard key={clip.result.id} clip={clip.result} />
+        ) : null,
       )}
+      <Button onClick={() => loadMoreGenerations(3)} disabled={convexFeedQueryStatus !== "CanLoadMore"}>
+        {convexFeedQueryStatus === "LoadingMore" || convexFeedQueryStatus === "LoadingFirstPage" ? "Loading..." : "Load More"}
+      </Button>
     </div>
   );
 }
@@ -157,4 +167,3 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip }) => {
   );
 };
 
-// {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}

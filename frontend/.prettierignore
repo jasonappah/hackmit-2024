@@ -3,7 +3,7 @@ node_modules
 /build
 /public/build
 .env
-convex/_generated
+../convex/_generated
 
 /cypress/screenshots
 /cypress/videos
