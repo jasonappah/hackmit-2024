@@ -2,3 +2,5 @@
 .env*
 # Ignore the large PyTorch library file
 
+node_modules
+.DS_Store
